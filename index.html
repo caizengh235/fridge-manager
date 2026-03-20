@@ -1149,5 +1149,32 @@
             if (e.target === e.currentTarget) closeNotifications();
         });
     </script>
+    <!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyDy9ZueLQMh_nnFuuDaHQRuDXolzTQCl0Y",
+  authDomain: "fridge-manager-c8cf9.firebaseapp.com",
+  projectId: "fridge-manager-c8cf9",
+  storageBucket: "fridge-manager-c8cf9.firebasestorage.app",
+  messagingSenderId: "355743418665",
+  appId: "1:355743418665:web:0052f5b90dc3b013054f38"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+  window.fridgeDB = db;
+  window.fridgeCollection = collection(db, 'inventory');
+  
+  console.log('Firebase 已连接');
+</script>
 </body>
 </html>
