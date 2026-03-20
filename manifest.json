@@ -1,10 +1,12 @@
 {
-  "name": "智能冰箱管家",
-  "short_name": "冰箱管家",
+  "name": "智能冰箱管家 - AI版",
+  "short_name": "AI冰箱管家",
+  "description": "AI智能推荐菜谱，管理冰箱食材",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#667eea",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/3075/3075977.png",
