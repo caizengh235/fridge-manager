@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>智能冰箱管家</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+        
+        * {
+            font-family: 'Noto Sans SC', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        
+        .glass-dark {
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        
+        .slide-up {
+            animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        .pulse-ring {
+            position: absolute;
+            border-radius: 50%;
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        
+        @keyframes pulse-ring {
+            0% { transform: scale(0.33); opacity: 1; }
+            80%, 100% { transform: scale(2); opacity: 0; }
+        }
+        
+        .ingredient-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .ingredient-card:active {
+            transform: scale(0.95);
+        }
+        
+        .recipe-card {
+            transition: all 0.3s ease;
+        }
+        
+        .recipe-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .category-chip {
+            transition: all 0.2s ease;
+        }
+        
+        .category-chip.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        .floating-btn {
+            box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .floating-btn:active {
+            transform: scale(0.9);
+        }
+        
+        .progress-bar {
+            transition: width 0.5s ease;
+        }
+        
+        .expiry-warning {
+            animation: shake 0.5s ease-in-out;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        .tab-active {
+            position: relative;
+        }
+        
+        .tab-active::after {
+            content: '';
+            position: absolute;
+            bottom: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 3px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px;
+        }
+        
+        .scanner-line {
+            animation: scan 2s linear infinite;
+        }
+        
+        @keyframes scan {
+            0% { top: 0; }
+            50% { top: 100%; }
+            100% { top: 0; }
+        }
+        
+        .strikethrough {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+        
+        /* Hide scrollbar */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- App Container -->
+    <div class="max-w-md mx-auto min-h-screen bg-gray-50 relative shadow-2xl">
+        
+        <!-- Header -->
+        <div class="glass sticky top-0 z-40 px-6 py-4 shadow-sm">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                        智能冰箱管家
+                    </h1>
+                    <p class="text-xs text-gray-500 mt-1" id="current-date">2024年3月19日</p>
+                </div>
+                <div class="relative">
+                    <button onclick="showNotifications()" class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition">
+                        <i class="fas fa-bell"></i>
+                    </button>
+                    <span id="notif-badge" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center hidden">2</span>
+                </div>
+            </div>
+            
+            <!-- Stats Cards -->
+            <div class="flex gap-3 mt-4">
+                <div class="flex-1 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-3 text-white shadow-lg">
+                    <div class="text-xs opacity-90">食材总数</div>
+                    <div class="text-2xl font-bold" id="total-items">12</div>
+                </div>
+                <div class="flex-1 bg-gradient-to-br from-orange-400 to-orange-500 rounded-xl p-3 text-white shadow-lg">
+                    <div class="text-xs opacity-90">即将过期</div>
+                    <div class="text-2xl font-bold" id="expiring-items">3</div>
+                </div>
+                <div class="flex-1 bg-gradient-to-br from-green-400 to-green-500 rounded-xl p-3 text-white shadow-lg">
+                    <div class="text-xs opacity-90">可做菜谱</div>
+                    <div class="text-2xl font-bold" id="possible-recipes">5</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="pb-24 pt-2">
+            
+            <!-- Tab: 冰箱库存 -->
+            <div id="tab-inventory" class="tab-content">
+                <!-- Category Filter -->
+                <div class="px-4 py-3 overflow-x-auto no-scrollbar">
+                    <div class="flex gap-2" id="category-filters">
+                        <button onclick="filterCategory('all')" class="category-chip active px-4 py-2 rounded-full bg-white shadow-sm text-sm font-medium whitespace-nowrap border border-gray-200">
+                            全部
+                        </button>
+                        <button onclick="filterCategory('vegetable')" class="category-chip px-4 py-2 rounded-full bg-white shadow-sm text-sm font-medium whitespace-nowrap border border-gray-200">
+                            🥬 蔬菜
+                        </button>
+                        <button onclick="filterCategory('meat')" class="category-chip px-4 py-2 rounded-full bg-white shadow-sm text-sm font-medium whitespace-nowrap border border-gray-200">
+                            🥩 肉类
+                        </button>
+                        <button onclick="filterCategory('seafood')" class="category-chip px-4 py-2 rounded-full bg-white shadow-sm text-sm font-medium whitespace-nowrap border border-gray-200">
+                            🦐 海鲜
+                        </button>
+                        <button onclick="filterCategory('dairy')" class="category-chip px-4 py-2 rounded-full bg-white shadow-sm text-sm font-medium whitespace-nowrap border border-gray-200">
+                            🥛 乳制品
+                        </button>
+                        <button onclick="filterCategory('grain')" class="category-chip px-4 py-2 rounded-full bg-white shadow-sm text-sm font-medium whitespace-nowrap border border-gray-200">
+                            🌾 粮油
+                        </button>
+                        <button onclick="filterCategory('fruit')" class="category-chip px-4 py-2 rounded-full bg-white shadow-sm text-sm font-medium whitespace-nowrap border border-gray-200">
+                            🍎 水果
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Inventory Grid -->
+                <div class="px-4 grid grid-cols-2 gap-3" id="inventory-grid">
+                    <!-- Items will be injected here -->
+                </div>
+                
+                <!-- Empty State -->
+                <div id="empty-state" class="hidden flex flex-col items-center justify-center py-12 text-gray-400">
+                    <i class="fas fa-box-open text-6xl mb-4 opacity-30"></i>
+                    <p>冰箱空空如也，快去添加食材吧！</p>
+                </div>
+            </div>
+
+            <!-- Tab: 智能菜谱 -->
+            <div id="tab-recipes" class="tab-content hidden">
+                <!-- Smart Match Banner -->
+                <div class="mx-4 mt-2 p-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl text-white shadow-lg mb-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-bold text-lg">AI智能匹配</h3>
+                            <p class="text-sm opacity-90 mt-1">根据现有食材推荐最佳菜谱</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                            <i class="fas fa-robot text-2xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex gap-2 flex-wrap" id="available-ingredients-tags">
+                        <!-- Tags injected here -->
+                    </div>
+                </div>
+
+                <!-- Recipe List -->
+                <div class="px-4 space-y-4" id="recipe-list">
+                    <!-- Recipes injected here -->
+                </div>
+            </div>
+
+            <!-- Tab: 购物清单 -->
+            <div id="tab-shopping" class="tab-content hidden">
+                <div class="px-4 py-3">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+                            <h3 class="font-bold text-gray-800">待购食材清单</h3>
+                            <button onclick="clearCompleted()" class="text-sm text-purple-600 font-medium">
+                                清除已完成
+                            </button>
+                        </div>
+                        <div id="shopping-list" class="divide-y divide-gray-100">
+                            <!-- Shopping items injected here -->
+                        </div>
+                        <div class="p-4 bg-gray-50">
+                            <button onclick="showAddShoppingItem()" class="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-purple-400 hover:text-purple-600 transition flex items-center justify-center gap-2">
+                                <i class="fas fa-plus"></i>
+                                添加购物项
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Smart Suggestions -->
+                    <div class="mt-6">
+                        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 px-1">智能补货建议</h4>
+                        <div class="space-y-3" id="smart-suggestions">
+                            <!-- Suggestions injected here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Floating Action Button -->
+        <button onclick="showAddItemModal()" class="floating-btn fixed bottom-20 right-4 w-14 h-14 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full text-white text-2xl flex items-center justify-center z-30 hover:scale-110 active:scale-95">
+            <i class="fas fa-plus"></i>
+        </button>
+
+        <!-- Bottom Navigation -->
+        <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 flex justify-around items-center z-40 max-w-md mx-auto">
+            <button onclick="switchTab('inventory')" class="flex flex-col items-center gap-1 text-purple-600 tab-active" id="nav-inventory">
+                <i class="fas fa-snowflake text-xl"></i>
+                <span class="text-xs font-medium">冰箱</span>
+            </button>
+            <button onclick="switchTab('recipes')" class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600" id="nav-recipes">
+                <i class="fas fa-utensils text-xl"></i>
+                <span class="text-xs font-medium">菜谱</span>
+            </button>
+            <button onclick="switchTab('shopping')" class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600" id="nav-shopping">
+                <i class="fas fa-shopping-cart text-xl"></i>
+                <span class="text-xs font-medium">购物</span>
+            </button>
+        </div>
+
+        <!-- Add Item Modal -->
+        <div id="add-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end sm:items-center justify-center">
+            <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 slide-up max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold">添加食材</h2>
+                    <button onclick="closeAddModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- Quick Add Tags -->
+                <div class="mb-4">
+                    <label class="text-sm font-medium text-gray-600 mb-2 block">快速添加</label>
+                    <div class="flex flex-wrap gap-2" id="quick-add-tags">
+                        <button onclick="quickAdd('鸡蛋', 'dairy', 6, '个')" class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">🥚 鸡蛋</button>
+                        <button onclick="quickAdd('西红柿', 'vegetable', 3, '个')" class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm">🍅 西红柿</button>
+                        <button onclick="quickAdd('牛奶', 'dairy', 1, '盒')" class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">🥛 牛奶</button>
+                        <button onclick="quickAdd('鸡胸肉', 'meat', 2, '块')" class="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm">🍗 鸡胸肉</button>
+                        <button onclick="quickAdd('青菜', 'vegetable', 1, '把')" class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">🥬 青菜</button>
+                    </div>
+                </div>
+
+                <form onsubmit="saveItem(event)">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-600 mb-1 block">食材名称</label>
+                            <input type="text" id="item-name" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition" placeholder="例如：鸡蛋、牛肉...">
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-sm font-medium text-gray-600 mb-1 block">数量</label>
+                                <input type="number" id="item-quantity" required min="1" value="1" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-600 mb-1 block">单位</label>
+                                <select id="item-unit" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition bg-white">
+                                    <option value="个">个</option>
+                                    <option value="克">克</option>
+                                    <option value="千克">千克</option>
+                                    <option value="升">升</option>
+                                    <option value="毫升">毫升</option>
+                                    <option value="盒">盒</option>
+                                    <option value="袋">袋</option>
+                                    <option value="把">把</option>
+                                    <option value="根">根</option>
+                                    <option value="块">块</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-sm font-medium text-gray-600 mb-1 block">分类</label>
+                            <div class="grid grid-cols-4 gap-2" id="category-selection">
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="category" value="vegetable" class="hidden peer" checked>
+                                    <div class="peer-checked:bg-green-500 peer-checked:text-white bg-gray-100 text-gray-600 rounded-lg py-2 text-center text-sm transition">
+                                        🥬 蔬菜
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="category" value="meat" class="hidden peer">
+                                    <div class="peer-checked:bg-red-500 peer-checked:text-white bg-gray-100 text-gray-600 rounded-lg py-2 text-center text-sm transition">
+                                        🥩 肉类
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="category" value="seafood" class="hidden peer">
+                                    <div class="peer-checked:bg-blue-500 peer-checked:text-white bg-gray-100 text-gray-600 rounded-lg py-2 text-center text-sm transition">
+                                        🦐 海鲜
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="category" value="dairy" class="hidden peer">
+                                    <div class="peer-checked:bg-yellow-500 peer-checked:text-white bg-gray-100 text-gray-600 rounded-lg py-2 text-center text-sm transition">
+                                        🥛 乳制
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="category" value="fruit" class="hidden peer">
+                                    <div class="peer-checked:bg-orange-500 peer-checked:text-white bg-gray-100 text-gray-600 rounded-lg py-2 text-center text-sm transition">
+                                        🍎 水果
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="category" value="grain" class="hidden peer">
+                                    <div class="peer-checked:bg-amber-600 peer-checked:text-white bg-gray-100 text-gray-600 rounded-lg py-2 text-center text-sm transition">
+                                        🌾 粮油
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="category" value="seasoning" class="hidden peer">
+                                    <div class="peer-checked:bg-gray-600 peer-checked:text-white bg-gray-100 text-gray-600 rounded-lg py-2 text-center text-sm transition">
+                                        🧂 调料
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="category" value="other" class="hidden peer">
+                                    <div class="peer-checked:bg-purple-500 peer-checked:text-white bg-gray-100 text-gray-600 rounded-lg py-2 text-center text-sm transition">
+                                        📦 其他
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-sm font-medium text-gray-600 mb-1 block">保质期至</label>
+                            <input type="date" id="item-expiry" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                        </div>
+
+                        <button type="submit" class="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition transform active:scale-95">
+                            确认添加
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Recipe Detail Modal -->
+        <div id="recipe-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end sm:items-center justify-center">
+            <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden slide-up max-h-[90vh] overflow-y-auto" id="recipe-detail-content">
+                <!-- Content injected dynamically -->
+            </div>
+        </div>
+
+        <!-- Notifications Modal -->
+        <div id="notif-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start justify-center pt-20 px-4">
+            <div class="bg-white w-full max-w-sm rounded-2xl p-4 fade-in shadow-2xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg">通知提醒</h3>
+                    <button onclick="closeNotifications()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="notifications-list" class="space-y-3">
+                    <!-- Notifications injected here -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Data Store
+        let inventory = [
+            { id: 1, name: '鸡蛋', category: 'dairy', quantity: 6, unit: '个', expiry: '2024-03-25', added: '2024-03-15' },
+            { id: 2, name: '西红柿', category: 'vegetable', quantity: 3, unit: '个', expiry: '2024-03-22', added: '2024-03-18' },
+            { id: 3, name: '鸡胸肉', category: 'meat', quantity: 2, unit: '块', expiry: '2024-03-20', added: '2024-03-17' },
+            { id: 4, name: '青菜', category: 'vegetable', quantity: 1, unit: '把', expiry: '2024-03-21', added: '2024-03-18' },
+            { id: 5, name: '牛奶', category: 'dairy', quantity: 1, unit: '盒', expiry: '2024-03-28', added: '2024-03-10' },
+            { id: 6, name: '大米', category: 'grain', quantity: 2, unit: '千克', expiry: '2024-12-31', added: '2024-01-01' },
+            { id: 7, name: '胡萝卜', category: 'vegetable', quantity: 2, unit: '根', expiry: '2024-03-30', added: '2024-03-15' },
+            { id: 8, name: '虾仁', category: 'seafood', quantity: 200, unit: '克', expiry: '2024-03-19', added: '2024-03-17' },
+            { id: 9, name: '豆腐', category: 'dairy', quantity: 1, unit: '盒', expiry: '2024-03-23', added: '2024-03-18' },
+            { id: 10, name: '青椒', category: 'vegetable', quantity: 3, unit: '个', expiry: '2024-03-26', added: '2024-03-16' },
+            { id: 11, name: '洋葱', category: 'vegetable', quantity: 1, unit: '个', expiry: '2024-04-01', added: '2024-03-10' },
+            { id: 12, name: '牛肉', category: 'meat', quantity: 300, unit: '克', expiry: '2024-03-24', added: '2024-03-17' }
+        ];
+
+        let shoppingList = [
+            { id: 1, name: '生抽', completed: false, urgent: false },
+            { id: 2, name: '大蒜', completed: false, urgent: true },
+            { id: 3, name: '生姜', completed: true, urgent: false }
+        ];
+
+        const recipes = [
+            {
+                id: 1,
+                name: '西红柿炒鸡蛋',
+                difficulty: '简单',
+                time: '10分钟',
+                calories: '180卡',
+                tags: ['家常菜', '快手菜'],
+                ingredients: ['鸡蛋', '西红柿'],
+                missing: ['葱', '盐'],
+                image: '🍳',
+                steps: ['西红柿切块', '鸡蛋打散', '先炒鸡蛋', '再炒西红柿', '混合翻炒']
+            },
+            {
+                id: 2,
+                name: '宫保鸡丁',
+                difficulty: '中等',
+                time: '25分钟',
+                calories: '320卡',
+                tags: ['川菜', '下饭'],
+                ingredients: ['鸡胸肉', '胡萝卜', '青椒'],
+                missing: ['花生米', '干辣椒', '花椒', '豆瓣酱'],
+                image: '🍗',
+                steps: ['鸡肉切丁腌制', '蔬菜切丁', '爆炒鸡丁', '加入调料', '收汁出锅']
+            },
+            {
+                id: 3,
+                name: '青菜豆腐汤',
+                difficulty: '简单',
+                time: '15分钟',
+                calories: '120卡',
+                tags: ['清淡', '汤品'],
+                ingredients: ['青菜', '豆腐'],
+                missing: ['盐', '香油'],
+                image: '🍲',
+                steps: ['豆腐切块', '水烧开', '下豆腐', '加青菜', '调味出锅']
+            },
+            {
+                id: 4,
+                name: '虾仁滑蛋',
+                difficulty: '中等',
+                time: '15分钟',
+                calories: '220卡',
+                tags: ['海鲜', '高蛋白'],
+                ingredients: ['虾仁', '鸡蛋'],
+                missing: ['料酒', '白胡椒粉', '淀粉'],
+                image: '🦐',
+                steps: ['虾仁腌制', '鸡蛋打散', '先炒虾仁', '倒入蛋液', '滑炒至熟']
+            },
+            {
+                id: 5,
+                name: '牛肉炒饭',
+                difficulty: '简单',
+                time: '20分钟',
+                calories: '450卡',
+                tags: ['主食', '饱腹'],
+                ingredients: ['牛肉', '米饭', '鸡蛋', '胡萝卜', '洋葱'],
+                missing: ['酱油', '葱花'],
+                image: '🍛',
+                steps: ['牛肉切丁', '蔬菜切丁', '炒鸡蛋', '炒牛肉', '加入米饭翻炒']
+            },
+            {
+                id: 6,
+                name: '青椒肉丝',
+                difficulty: '中等',
+                time: '20分钟',
+                calories: '280卡',
+                tags: ['家常菜', '下饭'],
+                ingredients: ['牛肉', '青椒'],
+                missing: ['生抽', '料酒', '淀粉', '姜'],
+                image: '🥩',
+                steps: ['肉切丝腌制', '青椒切丝', '爆炒肉丝', '加入青椒', '调味出锅']
+            }
+        ];
+
+        let currentFilter = 'all';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            updateDate();
+            renderInventory();
+            renderRecipes();
+            renderShoppingList();
+            updateStats();
+            checkExpiringItems();
+            
+            // Set default date to today + 7 days for new items
+            const today = new Date();
+            today.setDate(today.getDate() + 7);
+            document.getElementById('item-expiry').valueAsDate = today;
+        });
+
+        function updateDate() {
+            const now = new Date();
+            const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+            document.getElementById('current-date').textContent = now.toLocaleDateString('zh-CN', options);
+        }
+
+        function switchTab(tab) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('[id^="nav-"]').forEach(el => {
+                el.classList.remove('text-purple-600', 'tab-active');
+                el.classList.add('text-gray-400');
+            });
+            
+            // Show selected tab
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`nav-${tab}`).classList.remove('text-gray-400');
+            document.getElementById(`nav-${tab}`).classList.add('text-purple-600', 'tab-active');
+            
+            if (tab === 'recipes') renderRecipes();
+            if (tab === 'shopping') renderShoppingList();
+        }
+
+        function filterCategory(category) {
+            currentFilter = category;
+            
+            // Update UI
+            document.querySelectorAll('.category-chip').forEach(chip => {
+                chip.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            renderInventory();
+        }
+
+        function renderInventory() {
+            const grid = document.getElementById('inventory-grid');
+            const emptyState = document.getElementById('empty-state');
+            
+            let filtered = inventory;
+            if (currentFilter !== 'all') {
+                filtered = inventory.filter(item => item.category === currentFilter);
+            }
+            
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            
+            emptyState.classList.add('hidden');
+            
+            grid.innerHTML = filtered.map(item => {
+                const daysUntilExpiry = getDaysUntilExpiry(item.expiry);
+                const isExpiringSoon = daysUntilExpiry <= 3 && daysUntilExpiry >= 0;
+                const isExpired = daysUntilExpiry < 0;
+                
+                let statusClass = 'bg-green-100 text-green-700';
+                let statusText = `${daysUntilExpiry}天后过期`;
+                
+                if (isExpired) {
+                    statusClass = 'bg-red-100 text-red-700';
+                    statusText = '已过期';
+                } else if (isExpiringSoon) {
+                    statusClass = 'bg-orange-100 text-orange-700 expiry-warning';
+                    statusText = daysUntilExpiry === 0 ? '今天过期' : `${daysUntilExpiry}天后过期`;
+                }
+                
+                const categoryEmojis = {
+                    vegetable: '🥬', meat: '🥩', seafood: '🦐', 
+                    dairy: '🥛', fruit: '🍎', grain: '🌾',
+                    seasoning: '🧂', other: '📦'
+                };
+                
+                return `
+                    <div class="ingredient-card bg-white rounded-2xl p-4 shadow-sm border border-gray-100 relative overflow-hidden" onclick="showItemDetail(${item.id})">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-xl">
+                                ${categoryEmojis[item.category] || '📦'}
+                            </div>
+                            <button onclick="event.stopPropagation(); deleteItem(${item.id})" class="text-gray-400 hover:text-red-500 transition">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                        <h3 class="font-bold text-gray-800 mb-1">${item.name}</h3>
+                        <div class="text-sm text-gray-600 mb-2">${item.quantity} ${item.unit}</div>
+                        <div class="inline-block px-2 py-1 rounded-lg text-xs font-medium ${statusClass}">
+                            ${statusText}
+                        </div>
+                        ${isExpiringSoon ? '<div class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full m-2"></div>' : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getDaysUntilExpiry(expiryDate) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const expiry = new Date(expiryDate);
+            const diffTime = expiry - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays;
+        }
+
+        function showAddItemModal() {
+            document.getElementById('add-modal').classList.remove('hidden');
+            document.getElementById('item-name').focus();
+        }
+
+        function closeAddModal() {
+            document.getElementById('add-modal').classList.add('hidden');
+            document.getElementById('item-name').value = '';
+            document.getElementById('item-quantity').value = 1;
+        }
+
+        function quickAdd(name, category, qty, unit) {
+            document.getElementById('item-name').value = name;
+            document.getElementById('item-quantity').value = qty;
+            document.getElementById('item-unit').value = unit;
+            
+            // Select category radio
+            const radio = document.querySelector(`input[name="category"][value="${category}"]`);
+            if (radio) radio.checked = true;
+        }
+
+        function saveItem(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('item-name').value;
+            const quantity = parseInt(document.getElementById('item-quantity').value);
+            const unit = document.getElementById('item-unit').value;
+            const expiry = document.getElementById('item-expiry').value;
+            const category = document.querySelector('input[name="category"]:checked').value;
+            
+            const newItem = {
+                id: Date.now(),
+                name,
+                category,
+                quantity,
+                unit,
+                expiry,
+                added: new Date().toISOString().split('T')[0]
+            };
+            
+            inventory.push(newItem);
+            renderInventory();
+            updateStats();
+            closeAddModal();
+            
+            // Show success feedback
+            showToast('添加成功！');
+        }
+
+        function deleteItem(id) {
+            if (confirm('确定要删除这个食材吗？')) {
+                inventory = inventory.filter(item => item.id !== id);
+                renderInventory();
+                updateStats();
+                showToast('已删除');
+            }
+        }
+
+        function showItemDetail(id) {
+            // Could expand to show detailed view
+            // For now, just allow editing quantity
+            const item = inventory.find(i => i.id === id);
+            const newQty = prompt(`修改 "${item.name}" 的数量 (${item.unit}):`, item.quantity);
+            if (newQty !== null && !isNaN(newQty) && newQty >= 0) {
+                item.quantity = parseInt(newQty);
+                if (item.quantity === 0) {
+                    deleteItem(id);
+                } else {
+                    renderInventory();
+                    updateStats();
+                }
+            }
+        }
+
+        function renderRecipes() {
+            const container = document.getElementById('recipe-list');
+            const availableIngredients = inventory.map(i => i.name);
+            
+            // Update available tags
+            const tagsContainer = document.getElementById('available-ingredients-tags');
+            tagsContainer.innerHTML = availableIngredients.slice(0, 5).map(ing => 
+                `<span class="px-2 py-1 bg-white/20 rounded text-xs">${ing}</span>`
+            ).join('') + (availableIngredients.length > 5 ? `<span class="px-2 py-1 bg-white/20 rounded text-xs">+${availableIngredients.length - 5}</span>` : '');
+            
+            // Calculate match score for each recipe
+            const scoredRecipes = recipes.map(recipe => {
+                const matched = recipe.ingredients.filter(ing => availableIngredients.includes(ing));
+                const missing = recipe.ingredients.filter(ing => !availableIngredients.includes(ing));
+                const matchRate = matched.length / recipe.ingredients.length;
+                return { ...recipe, matched, missing, matchRate, matchCount: matched.length };
+            }).sort((a, b) => b.matchRate - a.matchRate);
+            
+            container.innerHTML = scoredRecipes.map(recipe => {
+                const canCook = recipe.matchRate === 1;
+                const partialCook = recipe.matchRate >= 0.5;
+                
+                return `
+                    <div class="recipe-card bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 cursor-pointer" onclick="showRecipeDetail(${recipe.id})">
+                        <div class="p-4">
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center text-2xl">
+                                        ${recipe.image}
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-gray-800">${recipe.name}</h3>
+                                        <div class="flex gap-2 mt-1">
+                                            <span class="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">${recipe.difficulty}</span>
+                                            <span class="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">${recipe.time}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-2xl font-bold ${canCook ? 'text-green-500' : partialCook ? 'text-orange-500' : 'text-gray-400'}">
+                                        ${Math.round(recipe.matchRate * 100)}%
+                                    </div>
+                                    <div class="text-xs text-gray-500">匹配度</div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex flex-wrap gap-1 mb-3">
+                                ${recipe.matched.map(ing => `<span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">✓ ${ing}</span>`).join('')}
+                                ${recipe.missing.map(ing => `<span class="px-2 py-1 bg-gray-100 text-gray-500 rounded text-xs opacity-60">✗ ${ing}</span>`).join('')}
+                            </div>
+                            
+                            <div class="flex justify-between items-center pt-3 border-t border-gray-100">
+                                <div class="text-sm text-gray-600">
+                                    ${canCook ? '<span class="text-green-600 font-medium"><i class="fas fa-check-circle mr-1"></i>食材齐全</span>' : 
+                                      partialCook ? `<span class="text-orange-600">缺 ${recipe.missing.length} 样食材</span>` : 
+                                      '<span class="text-gray-400">食材不足</span>'}
+                                </div>
+                                <button onclick="event.stopPropagation(); addMissingToShopping(${recipe.id})" class="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200 transition">
+                                    补货清单
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showRecipeDetail(id) {
+            const recipe = recipes.find(r => r.id === id);
+            const availableIngredients = inventory.map(i => i.name);
+            const matched = recipe.ingredients.filter(ing => availableIngredients.includes(ing));
+            const missing = recipe.ingredients.filter(ing => !availableIngredients.includes(ing));
+            
+            const modal = document.getElementById('recipe-modal');
+            const content = document.getElementById('recipe-detail-content');
+            
+            content.innerHTML = `
+                <div class="relative h-48 bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center">
+                    <button onclick="closeRecipeModal()" class="absolute top-4 right-4 w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-white">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <div class="text-8xl">${recipe.image}</div>
+                </div>
+                <div class="p-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-800 mb-2">${recipe.name}</h2>
+                            <div class="flex gap-2 flex-wrap">
+                                ${recipe.tags.map(tag => `<span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm">${tag}</span>`).join('')}
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-500">${recipe.calories}</div>
+                            <div class="text-sm text-gray-500">${recipe.time}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <i class="fas fa-carrot text-orange-500"></i>
+                            食材准备
+                        </h3>
+                        <div class="space-y-2">
+                            ${recipe.ingredients.map(ing => {
+                                const hasIt = availableIngredients.includes(ing);
+                                return `
+                                    <div class="flex items-center justify-between p-3 rounded-xl ${hasIt ? 'bg-green-50' : 'bg-gray-50'}">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-6 h-6 rounded-full ${hasIt ? 'bg-green-500 text-white' : 'bg-gray-300 text-white'} flex items-center justify-center text-xs">
+                                                ${hasIt ? '<i class="fas fa-check"></i>' : '<i class="fas fa-times"></i>'}
+                                            </div>
+                                            <span class="${hasIt ? 'text-gray-800' : 'text-gray-500'}">${ing}</span>
+                                        </div>
+                                        ${!hasIt ? `<button onclick="addToShoppingList('${ing}')" class="text-sm text-purple-600 font-medium">加入购物单</button>` : '<span class="text-sm text-green-600">冰箱中有</span>'}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <i class="fas fa-list-ol text-blue-500"></i>
+                            烹饪步骤
+                        </h3>
+                        <div class="space-y-3">
+                            ${recipe.steps.map((step, idx) => `
+                                <div class="flex gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm shrink-0">
+                                        ${idx + 1}
+                                    </div>
+                                    <p class="text-gray-700 pt-1">${step}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    ${missing.length > 0 ? `
+                        <button onclick="addMissingToShopping(${recipe.id}); closeRecipeModal();" class="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-bold shadow-lg">
+                            一键添加缺失食材到购物单
+                        </button>
+                    ` : `
+                        <button onclick="startCooking(${recipe.id}); closeRecipeModal();" class="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-bold shadow-lg">
+                            开始烹饪（扣除食材）
+                        </button>
+                    `}
+                </div>
+            `;
+            
+            modal.classList.remove('hidden');
+        }
+
+        function closeRecipeModal() {
+            document.getElementById('recipe-modal').classList.add('hidden');
+        }
+
+        function addMissingToShopping(recipeId) {
+            const recipe = recipes.find(r => r.id === recipeId);
+            const availableIngredients = inventory.map(i => i.name);
+            const missing = recipe.ingredients.filter(ing => !availableIngredients.includes(ing));
+            
+            missing.forEach(ing => {
+                if (!shoppingList.some(s => s.name === ing && !s.completed)) {
+                    shoppingList.push({
+                        id: Date.now() + Math.random(),
+                        name: ing,
+                        completed: false,
+                        urgent: true
+                    });
+                }
+            });
+            
+            showToast(`已添加 ${missing.length} 个食材到购物清单`);
+            renderShoppingList();
+        }
+
+        function addToShoppingList(name) {
+            if (!shoppingList.some(s => s.name === name && !s.completed)) {
+                shoppingList.push({
+                    id: Date.now(),
+                    name: name,
+                    completed: false,
+                    urgent: false
+                });
+                renderShoppingList();
+                showToast('已添加到购物清单');
+            }
+        }
+
+        function renderShoppingList() {
+            const container = document.getElementById('shopping-list');
+            
+            if (shoppingList.length === 0) {
+                container.innerHTML = '<div class="p-8 text-center text-gray-400">购物清单为空</div>';
+                return;
+            }
+            
+            container.innerHTML = shoppingList.map(item => `
+                <div class="p-4 flex items-center gap-3 ${item.completed ? 'bg-gray-50' : ''}">
+                    <button onclick="toggleShoppingItem(${item.id})" class="w-6 h-6 rounded-full border-2 ${item.completed ? 'bg-green-500 border-green-500 text-white' : item.urgent ? 'border-red-400' : 'border-gray-300'} flex items-center justify-center transition">
+                        ${item.completed ? '<i class="fas fa-check text-xs"></i>' : ''}
+                    </button>
+                    <div class="flex-1 ${item.completed ? 'strikethrough' : ''}">
+                        <div class="font-medium ${item.urgent && !item.completed ? 'text-red-600' : 'text-gray-800'}">
+                            ${item.name}
+                            ${item.urgent && !item.completed ? '<span class="ml-2 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded">急需</span>' : ''}
+                        </div>
+                    </div>
+                    <button onclick="deleteShoppingItem(${item.id})" class="text-gray-400 hover:text-red-500">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `).join('');
+            
+            // Smart suggestions
+            const suggestions = generateSmartSuggestions();
+            document.getElementById('smart-suggestions').innerHTML = suggestions.map(s => `
+                <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
+                            <i class="fas fa-lightbulb"></i>
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-800 text-sm">${s.name}</div>
+                            <div class="text-xs text-gray-500">${s.reason}</div>
+                        </div>
+                    </div>
+                    <button onclick="addToShoppingList('${s.name}')" class="px-3 py-1 bg-orange-100 text-orange-700 rounded-lg text-sm font-medium">
+                        添加
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function generateSmartSuggestions() {
+            // Simple logic: suggest common pairings based on inventory
+            const suggestions = [];
+            const inventoryNames = inventory.map(i => i.name);
+            
+            if (inventoryNames.includes('鸡蛋') && !inventoryNames.includes('葱')) {
+                suggestions.push({ name: '葱', reason: '搭配鸡蛋更美味' });
+            }
+            if (inventoryNames.includes('西红柿') && !inventoryNames.includes('鸡蛋')) {
+                suggestions.push({ name: '鸡蛋', reason: '经典西红柿炒蛋' });
+            }
+            if (inventory.some(i => i.category === 'meat') && !inventoryNames.includes('生姜')) {
+                suggestions.push({ name: '生姜', reason: '去腥必备' });
+            }
+            if (inventoryNames.includes('牛肉') && !inventoryNames.includes('土豆')) {
+                suggestions.push({ name: '土豆', reason: '土豆炖牛肉' });
+            }
+            
+            return suggestions.slice(0, 3);
+        }
+
+        function toggleShoppingItem(id) {
+            const item = shoppingList.find(s => s.id === id);
+            if (item) {
+                item.completed = !item.completed;
+                renderShoppingList();
+            }
+        }
+
+        function deleteShoppingItem(id) {
+            shoppingList = shoppingList.filter(s => s.id !== id);
+            renderShoppingList();
+        }
+
+        function clearCompleted() {
+            shoppingList = shoppingList.filter(s => !s.completed);
+            renderShoppingList();
+            showToast('已清除已完成项目');
+        }
+
+        function showAddShoppingItem() {
+            const name = prompt('输入要购买的食材名称：');
+            if (name && name.trim()) {
+                shoppingList.push({
+                    id: Date.now(),
+                    name: name.trim(),
+                    completed: false,
+                    urgent: false
+                });
+                renderShoppingList();
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('total-items').textContent = inventory.length;
+            
+            const expiring = inventory.filter(item => {
+                const days = getDaysUntilExpiry(item.expiry);
+                return days <= 3 && days >= 0;
+            }).length;
+            document.getElementById('expiring-items').textContent = expiring;
+            
+            // Calculate possible recipes
+            const availableIngredients = inventory.map(i => i.name);
+            const possibleCount = recipes.filter(r => {
+                const matched = r.ingredients.filter(ing => availableIngredients.includes(ing));
+                return matched.length / r.ingredients.length >= 0.6; // At least 60% match
+            }).length;
+            document.getElementById('possible-recipes').textContent = possibleCount;
+            
+            // Update badge
+            const badge = document.getElementById('notif-badge');
+            if (expiring > 0) {
+                badge.textContent = expiring;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function checkExpiringItems() {
+            const expiring = inventory.filter(item => {
+                const days = getDaysUntilExpiry(item.expiry);
+                return days <= 2 && days >= 0;
+            });
+            
+            if (expiring.length > 0) {
+                // Could show in-app notification
+                console.log('Expiring items:', expiring);
+            }
+        }
+
+        function showNotifications() {
+            const expiring = inventory.filter(item => {
+                const days = getDaysUntilExpiry(item.expiry);
+                return days <= 3;
+            }).sort((a, b) => getDaysUntilExpiry(a.expiry) - getDaysUntilExpiry(b.expiry));
+            
+            const list = document.getElementById('notifications-list');
+            
+            if (expiring.length === 0) {
+                list.innerHTML = '<div class="text-center text-gray-500 py-4">暂无重要通知</div>';
+            } else {
+                list.innerHTML = expiring.map(item => {
+                    const days = getDaysUntilExpiry(item.expiry);
+                    return `
+                        <div class="flex items-center gap-3 p-3 bg-orange-50 rounded-xl">
+                            <div class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                                <i class="fas fa-exclamation"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-medium text-gray-800">${item.name} 即将过期</div>
+                                <div class="text-sm text-orange-600">${days === 0 ? '今天' : days + '天后'}过期，建议尽快使用</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            document.getElementById('notif-modal').classList.remove('hidden');
+        }
+
+        function closeNotifications() {
+            document.getElementById('notif-modal').classList.add('hidden');
+        }
+
+        function startCooking(recipeId) {
+            const recipe = recipes.find(r => r.id === recipeId);
+            
+            // Deduct ingredients
+            recipe.ingredients.forEach(ingName => {
+                const item = inventory.find(i => i.name === ingName);
+                if (item) {
+                    item.quantity = Math.max(0, item.quantity - 1);
+                    if (item.quantity === 0) {
+                        inventory = inventory.filter(i => i.id !== item.id);
+                    }
+                }
+            });
+            
+            renderInventory();
+            updateStats();
+            showToast('烹饪完成！食材已自动扣除');
+        }
+
+        function showToast(message) {
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg z-50 fade-in text-sm font-medium';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 2000);
+        }
+
+        // Close modals when clicking outside
+        document.getElementById('add-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeAddModal();
+        });
+        document.getElementById('recipe-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeRecipeModal();
+        });
+        document.getElementById('notif-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeNotifications();
+        });
+    </script>
+</body>
+</html>
